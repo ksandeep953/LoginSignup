@@ -1,0 +1,256 @@
+<!-- appsettings.json -->
+"ConnectionStrings": {
+    "default": "Data Source=DESKTOP-4DU98BI\\SQLEXPRESS01;Initial Catalog=Codefirst;Integrated Security=True;Connect Timeout=30;Encrypt=False;TrustServerCertificate=False;ApplicationIntent=ReadWrite;MultiSubnetFailover=False"
+  }
+
+
+  string connectionString = Configuration.GetConnectionString("default");
+ services.AddDbContext<AppDBContext>(c => c.UseSqlServer(connectionString));
+
+
+<!-- To Enable Authorization -->
+app.UseAuthentication();
+
+<!-- To see it in action, create AppDBContext Class under the Models folder and copy the code below. -->
+public class AppDBContext : IdentityDbContext
+    {
+        private readonly DbContextOptions _options;
+
+        public AppDBContext(DbContextOptions options): base(options)
+        {
+            _options = options; 
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+        }
+    }
+
+
+    services.AddIdentity<IdentityUser, IdentityRole>().AddEntityFrameworkStores<AppDBContext>();
+    
+        <!-- Create RegisterViewModel Class. This will be the properties for my View. -->
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; }
+        [Required]
+        [DataType(DataType.Password)]
+        public string Password { get; set; }
+        
+        [DataType(DataType.Password)]
+        [Display(Name ="Confirm Password")]
+        [Compare("Password",ErrorMessage ="Password and confirmation password not match.")]
+        public string ConfirmPassword { get; set; }
+
+
+        <!-- Create LoginViewModel Class. -->
+        [Required]
+[EmailAddress]
+public string Email { get; set; }
+[Required]
+[DataType(DataType.Password)]
+public string Password { get; set; }
+
+[Display(Name = "Remember Me")]
+public bool RememberMe { get; set; }
+
+
+<!-- Create Register Action » AccountController -->
+private readonly UserManager<IdentityUser> _userManager;
+    private readonly SignInManager<IdentityUser> _signInManager;
+    
+    public AccountController(UserManager<IdentityUser> userManager,
+                                  SignInManager<IdentityUser> signInManager)
+        {
+                _userManager = userManager;
+                _signInManager = signInManager;
+        }
+
+
+        <!-- Inside AccountController creates the Register method. This method will validate the input of a new user identity and register it to our database. -->
+        public IActionResult Register()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Register(RegisterViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var user = new IdentityUser
+                {
+                    UserName = model.Email,
+                    Email = model.Email,
+                };
+
+                var result = await _userManager.CreateAsync(user, model.Password);
+
+                if (result.Succeeded)
+                {
+                    await _signInManager.SignInAsync(user, isPersistent: false);
+
+                    return RedirectToAction("index", "Home");
+                }
+
+                foreach (var error in result.Errors)
+                {
+                    ModelState.AddModelError("", error.Description);
+                }
+
+                ModelState.AddModelError(string.Empty, "Invalid Login Attempt");
+
+            }
+            return View(model);
+        }
+
+
+<!-- 
+        Create and design a View. This view should bind to the RegisterViewModel properties so that we can use DataAnotation in this view. This function will validate our input base on the properties that we declare on our view model.
+
+        Below are the codes inside my Register.cshtml. -->
+
+        @model SLE_System.Models.RegisterViewModel
+@{
+    ViewData["Title"] = "Register";
+}
+
+<h1>Register</h1>
+
+<div class="row">
+    <div class="col-md-12">
+        <form method="post">
+            <div asp-validation-summary="All" class="text-danger"></div>
+            <div class="form-group">
+                <label asp-for="Email"></label>
+                <input asp-for="Email" class="form-control" />
+                <span asp-validation-for="Email" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Password"></label>
+                <input asp-for="Password" class="form-control" />
+                <span asp-validation-for="Password" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="ConfirmPassword"></label>
+                <input asp-for="ConfirmPassword" class="form-control" />
+                <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+            </div>
+            <button type="submit" class="btn-primary">Register</button>
+        </form>
+
+    </div>
+</div>
+
+<!-- 
+Create Login Action » AccountController
+14. Create IActionResult method name it Login inside AccountController. -->
+[HttpGet]
+[AllowAnonymous]
+public IActionResult Login()
+{
+    return View();
+}
+[HttpPost]
+[AllowAnonymous]
+public async Task<IActionResult> Login(LoginViewModel user)
+{
+    if (ModelState.IsValid)
+    {
+        var result = await _signInManager.PasswordSignInAsync(user.Email, user.Password, user.RememberMe, false);
+
+        if (result.Succeeded)
+        {
+            return RedirectToAction("Index", "Home");
+        }
+
+        ModelState.AddModelError(string.Empty, "Invalid Login Attempt");
+
+    }
+    return View(user);
+} 
+
+<!-- 
+Create Login View
+15. Add View name Login.cshtml. This view should be inside Views > Account. Copy the codes below. -->
+
+@model SLE_System.Models.LoginViewModel
+@{
+    ViewData["Title"] = "Login";
+}
+
+<h1>Login</h1>
+
+<div class="row">
+    <div class="col-md-12">
+        <form method="post">
+            <div asp-validation-summary="All" class="text-danger"></div>
+            <div class="form-group">
+                <label asp-for="Email"></label>
+                <input asp-for="Email" class="form-control" />
+                <span asp-validation-for="Email" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Password"></label>
+                <input asp-for="Password" class="form-control" />
+                <span asp-validation-for="Password" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <div class="custom-control custom-checkbox">
+                    <input asp-for="RememberMe" type="checkbox" class="custom-control-input">
+                    <label class="custom-control-label" asp-for="RememberMe">@Html.DisplayNameFor(m => m.RememberMe)</label>
+                </div>
+
+            </div>
+            <button type="submit" class="btn-primary">Login</button>
+        </form>
+
+    </div>
+</div>
+
+<!-- 
+Create Logout Action » AccountController
+16. Create IActionResult method inside AccountController. Name it Logout(). -->
+public async Task<IActionResult> Logout()
+    {
+        await _signInManager.SignOutAsync();
+
+        return RedirectToAction("Login");
+    }
+
+    <!-- Customize Menu » _Layout.cshtml -->
+
+    @if (User.Identity.IsAuthenticated)
+                    {
+                    <ul class="navbar-nav flex-grow-1">
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Account" asp-action="Logout">Logout</a>
+                        </li>
+                    </ul>
+                    }
+                    else
+                    {
+                        <ul class="navbar-nav flex-grow-1">
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Account" asp-action="Login">Login</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Account" asp-action="Register">Register</a>
+                            </li>
+                        </ul>
+                    } 
+
+
+     
